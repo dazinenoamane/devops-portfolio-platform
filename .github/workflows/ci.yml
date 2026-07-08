@@ -59,6 +59,9 @@ jobs:
         run: npm run build
 
   docker-build:
+    needs:
+      - backend-tests
+      - frontend-build
     name: docker build
     runs-on: ubuntu-latest
     steps:

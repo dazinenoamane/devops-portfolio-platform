@@ -57,3 +57,5 @@ failsafe-reports/
 # Local generated files
 outputs/
 work/
+
+*.tfvars
