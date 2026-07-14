@@ -5,6 +5,7 @@ on:
     workflows: ["CI"]
     types:
       - completed
+  workflow_dispatch:
 
 env:
   KUBE_NAMESPACE: portfolio
@@ -14,7 +15,7 @@ env:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -33,9 +34,14 @@ jobs:
           chmod 600 ~/.kube/config
 
       - name: Ensure namespace exists
-        run: kubectl create namespace "$KUBE_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: |
+          kubectl create namespace "$KUBE_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Create GHCR pull secret
+        env:
+          KUBECONFIG: ~/.kube/config
         run: |
           kubectl create secret docker-registry ghcr-secret \
             --namespace "$KUBE_NAMESPACE" \
@@ -45,28 +51,46 @@ jobs:
             --docker-email="${{ secrets.GHCR_EMAIL }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Attach image pull secret
+      - name: Attach pull secret to default service account
+        env:
+          KUBECONFIG: ~/.kube/config
         run: |
           kubectl patch serviceaccount default \
             -n "$KUBE_NAMESPACE" \
-            -p '{"imagePullSecrets":[{"name":"ghcr-secret"}]}'
+            -p '{"imagePullSecrets":[{"name":"ghcr-secret"}]}' || true
 
-      - name: Apply manifests
-        run: kubectl apply -f k8s/
+      - name: Apply Kubernetes manifests
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: |
+          kubectl apply -f k8s/
 
       - name: Update backend image
+        env:
+          KUBECONFIG: ~/.kube/config
         run: |
           kubectl set image deployment/backend backend=$IMAGE_BACKEND:$IMAGE_TAG -n "$KUBE_NAMESPACE"
 
       - name: Update frontend image
+        env:
+          KUBECONFIG: ~/.kube/config
         run: |
           kubectl set image deployment/frontend frontend=$IMAGE_FRONTEND:$IMAGE_TAG -n "$KUBE_NAMESPACE"
 
-      - name: Wait backend rollout
-        run: kubectl rollout status deployment/backend -n "$KUBE_NAMESPACE" --timeout=5m
+      - name: Wait for backend rollout
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: |
+          kubectl rollout status deployment/backend -n "$KUBE_NAMESPACE" --timeout=5m
 
-      - name: Wait frontend rollout
-        run: kubectl rollout status deployment/frontend -n "$KUBE_NAMESPACE" --timeout=5m
+      - name: Wait for frontend rollout
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: |
+          kubectl rollout status deployment/frontend -n "$KUBE_NAMESPACE" --timeout=5m
 
-      - name: Show status
-        run: kubectl get pods,svc -n "$KUBE_NAMESPACE" -o wide
+      - name: Show cluster status
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: |
+          kubectl get pods,svc -n "$KUBE_NAMESPACE" -o wide

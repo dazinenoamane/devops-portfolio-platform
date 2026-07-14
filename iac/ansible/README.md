@@ -6,6 +6,8 @@ What it does:
 - installs common packages
 - installs Docker Engine and the Compose plugin
 - installs Kubernetes tools
+- bootstraps the Kubernetes control plane with `kubeadm init`
+- joins the workers to the cluster
 - clones the application repository on the manager node
 
 Run it from this directory:

@@ -20,6 +20,10 @@ kubernetes_packages:
   - kubeadm
   - kubectl
 
+kubernetes_pod_network_cidr: "192.168.0.0/16"
+kubernetes_cni_manifest_url: "https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml"
+kubernetes_cri_socket: "unix:///run/containerd/containerd.sock"
+
 kubernetes_sysctl_config:
   net.bridge.bridge-nf-call-iptables: 1
   net.bridge.bridge-nf-call-ip6tables: 1

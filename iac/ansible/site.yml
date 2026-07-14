@@ -4,7 +4,27 @@
   roles:
     - common
     - docker
-    - kubernetes
+
+- name: Kubernetes preflight on all nodes
+  hosts: k8s_cluster
+  become: true
+  roles:
+    - role: kubernetes
+      tasks_from: preflight
+
+- name: Bootstrap Kubernetes control plane
+  hosts: k8s_manager
+  become: true
+  roles:
+    - role: kubernetes
+      tasks_from: control_plane
+
+- name: Join workers to the cluster
+  hosts: k8s_workers
+  become: true
+  roles:
+    - role: kubernetes
+      tasks_from: worker
 
 - name: Prepare manager node
   hosts: k8s_manager

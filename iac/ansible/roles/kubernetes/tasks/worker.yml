@@ -1,0 +1,21 @@
+- name: Check if Kubernetes worker is already joined
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubernetes_kubelet_conf
+
+- name: Join worker to Kubernetes cluster
+  ansible.builtin.shell: >
+    {{ hostvars[groups['k8s_manager'][0]].kubeadm_join_command.stdout }}
+    --cri-socket {{ kubernetes_cri_socket }}
+  args:
+    executable: /bin/bash
+  register: kubeadm_join_result
+  when: not kubernetes_kubelet_conf.stat.exists
+
+- name: Show join result
+  ansible.builtin.debug:
+    var: kubeadm_join_result.stdout_lines
+  when:
+    - kubeadm_join_result is defined
+    - kubeadm_join_result.stdout is defined
+    - kubeadm_join_result.stdout | length > 0

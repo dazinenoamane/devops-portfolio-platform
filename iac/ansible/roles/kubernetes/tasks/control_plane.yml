@@ -1,0 +1,63 @@
+- name: Check if Kubernetes control plane is already initialized
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubernetes_admin_conf
+
+- name: Initialize Kubernetes control plane
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - init
+      - --pod-network-cidr={{ kubernetes_pod_network_cidr }}
+      - --apiserver-advertise-address={{ ansible_host }}
+      - --cri-socket={{ kubernetes_cri_socket }}
+  register: kubeadm_init_result
+  when: not kubernetes_admin_conf.stat.exists
+
+- name: Re-check Kubernetes admin kubeconfig
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubernetes_admin_conf_after_init
+
+- name: Ensure kubeconfig directory exists for ubuntu
+  ansible.builtin.file:
+    path: /home/ubuntu/.kube
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0700"
+  when: kubernetes_admin_conf_after_init.stat.exists
+
+- name: Copy admin kubeconfig for ubuntu
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ubuntu/.kube/config
+    remote_src: true
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
+  when: kubernetes_admin_conf_after_init.stat.exists
+
+- name: Apply Calico CNI manifest
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig=/etc/kubernetes/admin.conf
+      - apply
+      - -f
+      - "{{ kubernetes_cni_manifest_url }}"
+  register: calico_apply_result
+  changed_when: "'configured' in calico_apply_result.stdout or 'created' in calico_apply_result.stdout"
+  when: kubernetes_admin_conf_after_init.stat.exists
+
+- name: Create Kubernetes join command
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - token
+      - create
+      - --print-join-command
+  register: kubeadm_join_command
+  changed_when: false
+  no_log: true
+  when: kubernetes_admin_conf_after_init.stat.exists
