@@ -1,0 +1,26 @@
+repo_url: "https://github.com/<YOUR_GITHUB_USERNAME>/portfolio-project.git"
+repo_branch: "main"
+project_dir: "/opt/portfolio-project"
+
+common_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - git
+  - apt-transport-https
+  - lsb-release
+  - software-properties-common
+
+docker_users:
+  - ubuntu
+
+kubernetes_version: "1.30"
+kubernetes_packages:
+  - kubelet
+  - kubeadm
+  - kubectl
+
+kubernetes_sysctl_config:
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.ipv4.ip_forward: 1

@@ -1,0 +1,13 @@
+- name: Prepare all nodes
+  hosts: k8s_cluster
+  become: true
+  roles:
+    - common
+    - docker
+    - kubernetes
+
+- name: Prepare manager node
+  hosts: k8s_manager
+  become: true
+  roles:
+    - repo
