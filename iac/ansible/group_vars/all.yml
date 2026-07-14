@@ -1,4 +1,4 @@
-repo_url: "https://github.com/<YOUR_GITHUB_USERNAME>/portfolio-project.git"
+repo_url: "https://github.com/dazinenoamane/devops-portfolio-platform"
 repo_branch: "main"
 project_dir: "/opt/portfolio-project"
 
