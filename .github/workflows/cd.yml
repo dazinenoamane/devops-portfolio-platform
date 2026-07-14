@@ -1,0 +1,72 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+env:
+  KUBE_NAMESPACE: portfolio
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/portfolio-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/portfolio-frontend
+  IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          printf '%s' "${{ secrets.KUBECONFIG_CONTENT }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Ensure namespace exists
+        run: kubectl create namespace "$KUBE_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create GHCR pull secret
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --namespace "$KUBE_NAMESPACE" \
+            --docker-server=ghcr.io \
+            --docker-username="${{ secrets.GHCR_USERNAME }}" \
+            --docker-password="${{ secrets.GHCR_TOKEN }}" \
+            --docker-email="${{ secrets.GHCR_EMAIL }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Attach image pull secret
+        run: |
+          kubectl patch serviceaccount default \
+            -n "$KUBE_NAMESPACE" \
+            -p '{"imagePullSecrets":[{"name":"ghcr-secret"}]}'
+
+      - name: Apply manifests
+        run: kubectl apply -f k8s/
+
+      - name: Update backend image
+        run: |
+          kubectl set image deployment/backend backend=$IMAGE_BACKEND:$IMAGE_TAG -n "$KUBE_NAMESPACE"
+
+      - name: Update frontend image
+        run: |
+          kubectl set image deployment/frontend frontend=$IMAGE_FRONTEND:$IMAGE_TAG -n "$KUBE_NAMESPACE"
+
+      - name: Wait backend rollout
+        run: kubectl rollout status deployment/backend -n "$KUBE_NAMESPACE" --timeout=5m
+
+      - name: Wait frontend rollout
+        run: kubectl rollout status deployment/frontend -n "$KUBE_NAMESPACE" --timeout=5m
+
+      - name: Show status
+        run: kubectl get pods,svc -n "$KUBE_NAMESPACE" -o wide
