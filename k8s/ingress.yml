@@ -1,0 +1,24 @@
+apiVersio: v1
+kind: Ingress
+metadata:
+  name: portfolio-ingress
+  namespace: portfolio-project
+spec:
+  rules:
+  - host: portfolio.local
+    http:
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: frontend-service
+              port:
+                number: 7777
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: backend-service
+              port:
+                number: 8080

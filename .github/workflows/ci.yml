@@ -73,3 +73,39 @@ jobs:
 
       - name: build frontend docker image
         run: docker build -t prtfolio-frontend:ci ./apps/frontend
+  
+  docker-push:
+    needs: docker-build
+    name: docker push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: login to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build and push backend
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/portfolio-backend:${{ github.sha }} \
+            ./apps/backend
+
+          docker push \
+            ghcr.io/${{ github.repository_owner }}/portfolio-backend:${{ github.sha }}
+
+      - name: build and push frontend
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/portfolio-frontend:${{ github.sha }} \
+            ./apps/frontend
+
+          docker push \
+            ghcr.io/${{ github.repository_owner }}/portfolio-frontend:${{ github.sha }}
